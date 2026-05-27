@@ -1,36 +1,45 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# craft.ai — web
 
-## Getting Started
+Qwen Studio'dan ilham alan, terminal asistanının web sürümü. Next.js 16 +
+TypeScript + Tailwind v4 + Supabase ile yazıldı, Vercel'de yayınlanır.
 
-First, run the development server:
+## Özellikler
+
+- 💬 **Sohbet / Gizli Sohbet / Geçmiş** — normal sohbet kaydedilir, gizli sohbet kaydedilmez.
+- 🧩 **Çoklu model** — Ayarlardan birden fazla model API'si ekle (Hugging Face, DeepSeek, OpenRouter, özel). Üst bardan seçtiğin modelle çalışır.
+- 👨‍💻 **Coder sekmesi** — GitHub deposuna bağlan, dosya ağacını gez, içeriği sohbete gönder.
+- 🔑 **Çoklu GitHub hesabı** — birden fazla token; özel depolar ve repo seçimi.
+- 🔐 **Gizlilik** — API anahtarları yalnızca tarayıcıda (localStorage). LLM çağrıları `/api/chat` sunucu proxy'si üzerinden gider (CORS sorunu yok).
+- ☁️ **Supabase (opsiyonel)** — giriş yaparsan sohbet geçmişin buluta senkronlanır; yoksa "yerel mod".
+
+## Geliştirme
 
 ```bash
+npm install
+cp .env.example .env.local   # Supabase kullanacaksan doldur (opsiyonel)
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Supabase kurulumu (opsiyonel)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. supabase.com'da yeni proje aç.
+2. `supabase/schema.sql` içeriğini SQL Editor'da çalıştır.
+3. Project Settings > API'den `URL` ve `anon key`'i al, `.env.local`'a yaz:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+4. Authentication > URL Configuration'a `https://<site>/auth/callback` ekle.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Vercel'e yayınlama
 
-## Learn More
+```bash
+npm i -g vercel
+vercel login
+vercel        # önizleme
+vercel --prod # canlı
+```
 
-To learn more about Next.js, take a look at the following resources:
+Ortam değişkenlerini (Supabase + opsiyonel LLM) Vercel proje ayarlarına ekle.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+**Geliştirici:** Enes Kahveci · eneskahveci.bs@gmail.com

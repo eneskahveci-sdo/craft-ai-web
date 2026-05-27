@@ -1,26 +1,171 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* craft.ai tema — Qwen Studio'dan ilhamla mor/menekşe vurgulu nötr koyu tema.
+   Tailwind v4 utility'leri üretir (bg-bg, text-muted, border-line, bg-brand ...) */
+@theme {
+  --color-bg: #0e0e13;
+  --color-bgsoft: #16161d;
+  --color-surface: #14141b;
+  --color-surface2: #1c1c26;
+  --color-line: #28283a;
+  --color-ink: #ececf1;
+  --color-muted: #9a9ab0;
+  /* birincil vurgu (Qwen moru) */
+  --color-brand: #7c5cff;
+  --color-branddim: #6a4be0;
+  --color-accent: #a78bfa;
+  /* durum / sözdizimi renkleri */
+  --color-cyan: #46d4e0;
+  --color-yellow: #f3c969;
+  --color-blue: #5aa7ff;
+  --color-red: #ff6b6b;
+  --color-green: #3ddc84;
+  --color-purple: #b794f6;
+
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* Qwen tarzı yumuşak mor degrade — marka unsurlarında kullanılır */
+.brand-gradient {
+  background: linear-gradient(120deg, #7c5cff, #a78bfa 60%, #46d4e0);
+}
+.brand-text {
+  background: linear-gradient(120deg, #9d7bff, #c4b1ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+html,
+body {
+  height: 100%;
+}
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-thumb {
+  background: #26323d;
+  border-radius: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Sohbet markdown çıktısı */
+.prose-chat {
+  line-height: 1.7;
+  word-break: break-word;
+}
+.prose-chat p {
+  margin: 0 0 12px;
+}
+.prose-chat p:last-child {
+  margin-bottom: 0;
+}
+.prose-chat ul,
+.prose-chat ol {
+  margin: 0 0 12px 22px;
+}
+.prose-chat ul {
+  list-style: disc;
+}
+.prose-chat ol {
+  list-style: decimal;
+}
+.prose-chat li {
+  margin: 4px 0;
+}
+.prose-chat h1,
+.prose-chat h2,
+.prose-chat h3 {
+  margin: 16px 0 8px;
+  font-weight: 700;
+}
+.prose-chat a {
+  color: var(--color-brand);
+  text-decoration: underline;
+}
+.prose-chat pre {
+  background: #070b0e;
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  margin: 10px 0;
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+}
+.prose-chat pre code {
+  background: transparent !important;
+  padding: 0 !important;
+}
+.prose-chat :not(pre) > code {
+  background: var(--color-bgsoft);
+  padding: 2px 6px;
+  border-radius: 5px;
+  color: var(--color-cyan);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+.prose-chat table {
+  border-collapse: collapse;
+  margin: 10px 0;
+  font-size: 14px;
+}
+.prose-chat th,
+.prose-chat td {
+  border: 1px solid var(--color-line);
+  padding: 6px 12px;
+}
+
+.bare-select {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--color-ink);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  max-width: 150px;
+}
+.bare-select option {
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.input-mono {
+  width: 100%;
+  background: var(--color-bgsoft);
+  border: 1px solid var(--color-line);
+  border-radius: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  font-size: 13.5px;
+  font-family: var(--font-mono);
+  color: var(--color-ink);
+}
+.input-mono:focus {
+  outline: none;
+  border-color: var(--color-brand);
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
   }
 }
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.caret {
+  display: inline-block;
+  width: 8px;
+  height: 1em;
+  background: var(--color-brand);
+  vertical-align: text-bottom;
+  animation: blink 1s steps(1) infinite;
 }
