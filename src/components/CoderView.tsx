@@ -90,6 +90,7 @@ import type { TreeFile, TreeNode } from "@/lib/types";
 import { ALL_AGENTS, findAgentByCommand, stripCommand, type Agent } from "@/lib/agents";
 import { calculateCost, estimateTokens, formatCost, getModelPrice } from "@/lib/pricing";
 import { buildContextSections } from "@/lib/prompt";
+import { buildFallbackChain } from "@/lib/fallback";
 import { PLATFORM_KNOWLEDGE } from "@/lib/platform-knowledge";
 import { addPendingAction, removePendingAction, isCommandAllowed, matchDangerousCommand, DEFAULT_COMMAND_ALLOWLIST, type PendingAction } from "@/lib/agentActions";
 
@@ -1402,6 +1403,9 @@ export function CoderView() {
           messages: apiMessages,
           baseUrl: active.baseUrl, model: active.model, apiKey: reqKey,
           provider: active.provider, systemPrompt: finalSystemPrompt,
+          /* Çok-sağlayıcılı otomatik fallback: aktif model hata verirse sunucu
+             sırayla bu ücretsiz adayları dener (kullanıcı duvara çarpmaz). */
+          fallbacks: buildFallbackChain(store.config.models, active.id),
           style: store.config.style,
           memories: store.config.memories,
           skills: activeSkills.map((s) => ({
@@ -1606,6 +1610,14 @@ export function CoderView() {
             /* ajan plan (update_plan) olayı */
             if (parsed.plan_event) {
               useStore.getState().setPlanOnLast(String(parsed.plan_event.plan ?? ""));
+              continue;
+            }
+            /* Otomatik fallback: birincil model hata verdi, sunucu ücretsiz bir
+               alternatife geçti → kullanıcıyı şeffaflık için bilgilendir. */
+            if (parsed.fallback_event) {
+              const fp = String(parsed.fallback_event.provider ?? "");
+              const fm = String(parsed.fallback_event.model ?? "");
+              addToast(`Aktif model yanıt vermedi; ücretsiz alternatife geçildi: ${fp} / ${fm}`, "info");
               continue;
             }
             /* Ajan Ekibi (Swarm) ilerleme olayı → todo paneli canlı güncelle */
