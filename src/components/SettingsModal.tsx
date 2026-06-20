@@ -24,6 +24,7 @@ import {
   Zap,
 } from "lucide-react";
 import { isGuestMode, setGuestMode, useStore } from "@/lib/store";
+import { isAdminEmail } from "@/lib/admin";
 import { PRESETS, PROVIDER_MODELS, DEFAULT_SYSTEM_PROMPT, STYLE_LABELS, ALL_TOOL_CATALOG } from "@/lib/constants";
 import { buildFallbackChain } from "@/lib/fallback";
 import { calculateCost, formatCost } from "@/lib/pricing";
@@ -35,6 +36,9 @@ export function SettingsModal() {
   const open = useStore((s) => s.settingsOpen);
   const setOpen = useStore((s) => s.setSettingsOpen);
   const config = useStore((s) => s.config);
+  /* Admin kapısı: hassas sunucu/terminal ayarları yalnız admin e-postasına açık.
+     Liste boşken (kurulum öncesi) herkese açık — kimse kilitlenmez. */
+  const isAdmin = isAdminEmail(useStore((s) => s.userEmail));
   const addModel = useStore((s) => s.addModel);
   const updateModel = useStore((s) => s.updateModel);
   const removeModel = useStore((s) => s.removeModel);
@@ -1123,6 +1127,9 @@ export function SettingsModal() {
               />
             </div>
 
+            {/* Hassas sunucu/terminal ayarları — yalnız admin görür (yeni kullanıcılar gizli) */}
+            {isAdmin && (
+            <>
             {/* Hibrit Sunucu — tek adres hem terminal hem dosya sistemi kurar */}
             <div>
               <h4 className="text-sm font-bold mb-1 flex items-center gap-1.5">🔗 Hibrit Sunucu <span className="text-[10px] font-normal text-brand/80 bg-brand/10 px-1.5 py-0.5 rounded">tek adres</span></h4>
@@ -1225,6 +1232,8 @@ export function SettingsModal() {
                 spellCheck={false}
               />
             </div>
+            </>
+            )}
 
             {/* Otomasyonlar (olaya bağlı komutlar — Claude Code hooks benzeri) */}
             <div>
@@ -1281,6 +1290,8 @@ export function SettingsModal() {
               </button>
             </div>
 
+            {isAdmin && (
+            <>
             {/* Yerel Mod (Local Bridge) */}
             <div>
               <h4 className="text-sm font-bold mb-1">🖥️ Yerel Mod (Local Bridge)</h4>
@@ -1323,6 +1334,8 @@ export function SettingsModal() {
                 autoComplete="off"
               />
             </div>
+            </>
+            )}
 
             {/* Yazı tipi boyutu */}
             <div>
