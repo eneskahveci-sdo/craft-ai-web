@@ -1844,7 +1844,7 @@ export function CoderView() {
       if (useStore.getState().config.soundEnabled) {
         const { playReady, notifyReady } = await import("@/lib/sounds");
         playReady();
-        notifyReady("Craft.Coder", "Yanıt hazır.");
+        notifyReady("Craft Coder", "Yanıt hazır.");
       }
       void extractMemory();
       fireHooks("onStop");
