@@ -186,7 +186,6 @@ export const PROVIDER_MODELS: Record<Provider, string[]> = {
     "moonshotai/kimi-k2:free",
     "meta-llama/llama-3.3-70b-instruct:free",
     "google/gemini-2.0-flash-exp:free",
-    "qwen/qwen-2.5-coder-32b-instruct",
     "openai/gpt-4o-mini",
   ],
   groq: [
