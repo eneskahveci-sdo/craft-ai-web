@@ -1180,6 +1180,16 @@ export async function POST(req: Request) {
     candidates.push({ provider: cp, baseUrl: cb, model: cm, apiKey: ck });
   }
 
+  /* SSRF: aday baseUrl'leri istemciden gelir. Canlıda (Vercel) iç ağ/loopback/
+     bulut-metadata adreslerini reddet; yerelde localhost LLM uçları meşrudur. */
+  if (process.env.NODE_ENV === "production") {
+    for (const c of candidates) {
+      if (!isSafeRemoteUrl(c.baseUrl)) {
+        return new Response("Güvensiz baseUrl — yalnızca genel (public) adresler kabul edilir.", { status: 400 });
+      }
+    }
+  }
+
   /* Bir adayı çağırır (Anthropic native ucu ayrı; diğerleri OpenAI-uyumlu fetch).
      Pollinations anonim istekleri için `referrer` ekler. */
   const openCandidate = (c: Candidate, messages: unknown, extra: Record<string, unknown> = {}): Promise<Response> => {
