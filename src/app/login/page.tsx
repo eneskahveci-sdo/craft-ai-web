@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Eye, EyeOff, KeyRound, Loader2, Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -10,6 +10,7 @@ type Mode = "login" | "signup";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -18,6 +19,11 @@ export default function LoginPage() {
   const [glLoading, setGlLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  useEffect(() => {
+    const urlError = searchParams.get("error");
+    if (urlError) setError(`Giriş başarısız: ${urlError}`);
+  }, [searchParams]);
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
 
   const validate = () => {

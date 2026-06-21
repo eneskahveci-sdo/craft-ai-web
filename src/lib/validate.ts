@@ -19,8 +19,9 @@ const OWNER_RE = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/;
 const REPO_RE = /^[A-Za-z0-9._-]{1,100}$/;
 /* Branch adı: refname kuralları (basitleştirilmiş, güvenli set) */
 const BRANCH_RE = /^[A-Za-z0-9._/-]{1,255}$/;
-/* GitHub token: gho_, ghp_, ghu_, ghs_, ghr_ prefixleri veya klasik 40 hex */
-const TOKEN_RE = /^(?:gh[opusr]_[A-Za-z0-9]{20,255}|[A-Fa-f0-9]{40})$/;
+/* GitHub token: gho_, ghp_, ghu_, ghs_, ghr_ prefixleri veya klasik 40 hex
+ * GitLab token: glpat- prefixi (Personal Access Token) */
+const TOKEN_RE = /^(?:gh[opusr]_[A-Za-z0-9]{20,255}|glpat-[A-Za-z0-9_-]{10,64}|[A-Fa-f0-9]{40})$/;
 
 export function asString(v: unknown, field: string, opts: { max?: number; min?: number } = {}): string {
   if (typeof v !== "string") throw new ValidationError(`${field}: metin olmalı`);
