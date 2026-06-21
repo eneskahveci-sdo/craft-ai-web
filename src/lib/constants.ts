@@ -221,6 +221,7 @@ export const PROVIDER_MODELS: Record<Provider, string[]> = {
     "openai-large",
     "openai-fast",
     "qwen-coder",
+    "deepseek",
     "mistral",
     "llama",
   ],
