@@ -1133,6 +1133,11 @@ export function CoderView() {
       return;
     }
     if (f.size > 512_000) { addToast("Dosya 512KB'den büyük.", "error"); return; }
+    /* Office dosyaları (zip-tabanlı) düz metin olarak okunamaz → net yönlendirme. */
+    if (/\.(docx?|pptx?|xlsx?)$/i.test(f.name)) {
+      addToast("Word/PowerPoint/Excel doğrudan okunamıyor — PDF'e çevirip sürükle.", "info");
+      return;
+    }
     const reader = new FileReader();
     reader.onload = () => {
       setAttachedFiles((prev) => [...prev, { path: f.name, content: reader.result as string }]);
@@ -2045,7 +2050,7 @@ export function CoderView() {
               ↓
             </div>
             <p className="text-sm font-extrabold text-ink">Dosyaları buraya bırak</p>
-            <p className="text-xs text-muted/60 mt-1">Birden çok dosya destekli · görseller de olur</p>
+            <p className="text-xs text-muted/60 mt-1">PDF · görsel · kod · metin · notebook — çoklu dosya</p>
           </div>
         </div>
       )}
