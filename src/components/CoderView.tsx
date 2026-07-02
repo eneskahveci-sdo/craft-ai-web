@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { decryptField, isEncrypted } from "@/lib/secureKeys";
+import { buildFallbackChain } from "@/lib/fallback";
 import {
   Activity,
   ArrowDown,
@@ -26,6 +27,7 @@ import {
   MoreHorizontal,
   Image as ImageIcon,
   Loader2 as Loader2Icon,
+  MessageSquare,
   PanelLeft,
   Paperclip,
   Check,
@@ -93,10 +95,10 @@ import type { TreeFile, TreeNode } from "@/lib/types";
 import { ALL_AGENTS, findAgentByCommand, stripCommand, type Agent } from "@/lib/agents";
 import { calculateCost, estimateTokens, formatCost, getModelPrice } from "@/lib/pricing";
 import { buildContextSections } from "@/lib/prompt";
-import { buildFallbackChain } from "@/lib/fallback";
 import { detectSensitive } from "@/lib/pii";
 import { retrieve } from "@/lib/retrieval";
 import { PLATFORM_KNOWLEDGE } from "@/lib/platform-knowledge";
+import { CRAFT_OPERATING_MANUAL } from "@/lib/constants";
 import { addPendingAction, removePendingAction, isCommandAllowed, matchDangerousCommand, DEFAULT_COMMAND_ALLOWLIST, type PendingAction } from "@/lib/agentActions";
 
 declare global {
@@ -397,6 +399,87 @@ function FileTreeNode({
 const RAG_TEXT_EXT = /\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|java|rb|php|c|h|cpp|cs|css|scss|html|json|md|mdx|txt|yml|yaml|sh|sql)$/i;
 const RAG_MAX_FILES = 150;
 
+/* ── ask_user anket kartı ─────────────────────────────────────────────────────
+   Ajan kodlamadan önce tıklanabilir soru(lar) sorduğunda gösterilir. Her soru
+   için seçenek butonları + "Diğer" serbest metin; tüm sorular yanıtlanınca
+   "Yanıtla & Devam Et" etkinleşir → cevaplar formatlanıp ajana geri yollanır. */
+interface SurveyOption { label: string; description?: string; }
+interface SurveyQuestion { header: string; question: string; options: SurveyOption[]; }
+
+function SurveyCard({
+  questions,
+  onSubmit,
+}: {
+  questions: SurveyQuestion[];
+  onSubmit: (answers: string[], questions: SurveyQuestion[]) => void;
+}) {
+  const [selected, setSelected] = useState<(string | null)[]>(() => questions.map(() => null));
+  const [other, setOther] = useState<string[]>(() => questions.map(() => ""));
+
+  const pick = (qi: number, label: string) =>
+    setSelected((prev) => prev.map((v, i) => (i === qi ? (v === label ? null : label) : v)));
+
+  const ready = selected.every((v, i) => v !== null || other[i].trim().length > 0);
+
+  const submit = () => {
+    if (!ready) return;
+    onSubmit(selected.map((v, i) => v ?? other[i].trim()), questions);
+  };
+
+  return (
+    <div className="ml-11 max-w-2xl mt-3 rounded-xl border border-brand/30 bg-brand/5 overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-brand/20 text-xs font-semibold text-brand">
+        <MessageSquare size={13} className="shrink-0" />
+        <span>Devam etmeden önce birkaç soru — tıkla veya yaz</span>
+      </div>
+      <div className="divide-y divide-line/30">
+        {questions.map((q, qi) => (
+          <div key={qi} className="px-3 py-3">
+            <p className="text-xs font-semibold text-ink mb-2">{q.question}</p>
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {q.options.map((opt) => (
+                <button
+                  key={opt.label}
+                  title={opt.description}
+                  onClick={() => pick(qi, opt.label)}
+                  className={[
+                    "px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors text-left",
+                    selected[qi] === opt.label
+                      ? "bg-brand text-white border-brand"
+                      : "border-line bg-bgsoft text-muted hover:border-brand/50 hover:text-ink",
+                  ].join(" ")}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <input
+              type="text"
+              placeholder="Diğer…"
+              value={other[qi]}
+              onChange={(e) => {
+                const v = e.target.value;
+                setOther((prev) => prev.map((x, i) => (i === qi ? v : x)));
+                if (v) setSelected((prev) => prev.map((x, i) => (i === qi ? null : x)));
+              }}
+              className="w-full text-xs px-2 py-1.5 rounded-lg border border-line bg-bg text-ink placeholder:text-muted focus:outline-none focus:border-brand/60"
+            />
+          </div>
+        ))}
+      </div>
+      <div className="px-3 py-2 border-t border-brand/20 flex justify-end">
+        <button
+          onClick={submit}
+          disabled={!ready}
+          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand text-white disabled:opacity-40 hover:bg-branddim transition-colors"
+        >
+          Yanıtla &amp; Devam Et
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function CoderView() {
   const config = useStore((s) => s.config);
   const isAdmin = isAdminEmail(useStore((s) => s.userEmail));
@@ -502,10 +585,14 @@ export function CoderView() {
   /* Çoklu-ajan ("Ajan Ekibi" / Swarm) modu: planlayıcı → paralel uzman işçiler
      → birleştirici (/api/orchestrate). Tek mesajda bir ajan ekibi çalışır. */
   const [swarmMode, setSwarmMode] = useState(false);
+  /* Derin Araştırma modu: çok-kaynaklı web araması → atıflı rapor (/api/research). */
+  const [researchMode, setResearchMode] = useState(false);
   /* ⋯ menüsü sekme durumu: Çalışma Alanı · Modlar · Araçlar. */
   const [moreTab, setMoreTab] = useState<"workspace" | "modes" | "tools">("workspace");
   const swarmModeRef = useRef(false);
   useEffect(() => { swarmModeRef.current = swarmMode; }, [swarmMode]);
+  const researchModeRef = useRef(false);
+  useEffect(() => { researchModeRef.current = researchMode; }, [researchMode]);
   /* Plan onayı: bir sonraki istekte plan-modu kapısını geçici aşar. */
   const planApprovedRef = useRef(false);
   /* afterEdit kancası geri-besleme döngü sayacı (her kullanıcı mesajında sıfırlanır,
@@ -536,6 +623,8 @@ export function CoderView() {
   /* Ajanın önerdiği YIKICI işlemler (sil/yeniden adlandır) — onay bekler. */
   const [pendingActions, setPendingActions] = useState<PendingAction[]>([]);
   const [resolvingAction, setResolvingAction] = useState<string | null>(null);
+  /* ask_user anketi: ajan soru sorduğunda gösterilir; cevaplanınca temizlenir. */
+  const [pendingSurvey, setPendingSurvey] = useState<SurveyQuestion[] | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   /* Çoklu dosya sekmeleri: editörde açık tutulan dosyalar + aktif olanın
      kaydedilmemiş durumu (sekme geçişinde veri kaybını önlemek için). */
@@ -1313,11 +1402,14 @@ export function CoderView() {
        ağır istek) tetiklendiyse devreye girer. Devam turlarında otomatik açılmaz. */
     const useSwarm = swarmModeRef.current
       || (store.config.autoSwarm !== false && !opts?.continuation && autoSwarm(_lastUserText));
-    /* Ajan Ekibi turunda otomatik EN GÜÇLÜ modeli kullan (ayar açıksa) → ekip en
-       yetenekli modelle çalışır. Hata olursa (kredi/anahtar yok) aşağıdaki catch
-       bloğu sessizce AKTİF modele döner ve tekrar dener. */
+    /* Derin Araştırma: kullanıcı modu açtıysa veya /research ajanı seçiliyse
+       (devam turlarında değil). */
+    const useResearch = (researchModeRef.current || overrideAgent?.id === "research") && !opts?.continuation;
+    /* Ajan Ekibi / Araştırma turunda otomatik EN GÜÇLÜ modeli kullan (ayar açıksa)
+       → en yetenekli modelle çalışır. Hata olursa (kredi/anahtar yok) aşağıdaki
+       catch bloğu sessizce AKTİF modele döner ve tekrar dener. */
     let usedStrongest = false;
-    if (useSwarm && !opts?.noStrongest && useStore.getState().config.agentsUseStrongestModel !== false) {
+    if ((useSwarm || useResearch) && !opts?.noStrongest && useStore.getState().config.agentsUseStrongestModel !== false) {
       const strong = store.strongestModel();
       if (strong && strong.id !== active.id) { active = strong; usedStrongest = true; }
     }
@@ -1423,6 +1515,7 @@ export function CoderView() {
     }
     const coderSystemPrompt = [
       config.systemPrompt,
+      CRAFT_OPERATING_MANUAL,
       agent
         ? agent.systemPrompt + ((store.toolsEnabled && (!!store.repo || (store.config.localMode && store.config.localBridgeUrl?.trim())))
             ? "\n\n[Araçlar açık] Tahmin etme — gerektiğinde read_file/read_files/grep/glob ile ilgili dosyaları incele, git_diff/git_log/git_blame ile değişiklikleri ve geçmişi gör, discover_rules ile proje kurallarını (CLAUDE.md/.rules) oku. ÖNCE keşfet, SONRA yanıtla; iddialarını dosya kanıtına dayandır."
@@ -1440,6 +1533,7 @@ export function CoderView() {
     const turnCheckpoints: { path: string; previous: string | null }[] =
       isContinuation ? [...(lastMsg?.checkpoints ?? [])] : []; // devamda önceki yazmalar korunur
     setPendingActions([]); // bekleyen yıkıcı işlem önerileri
+    setPendingSurvey(null); // önceki anketi temizle
     coderAbort = new AbortController();
     const abortCtl = coderAbort;
 
@@ -1477,6 +1571,12 @@ export function CoderView() {
         "(3) Yaygın hataları/edge-case'leri ve 'neden böyle' mantığını belirt. " +
         "(4) Sonunda 'Sırada öğren' başlığıyla 2-3 ilgili kavram/kaynak öner. " +
         "Üstten bakmadan, anlaşılır ve cesaretlendirici bir dille yaz. Kod kalitesinden ödün verme.";
+    }
+    /* Özel yazı stili: aktifse kullanıcı tanımlı talimatları ekle (yerleşik stilin
+       yerine geçer — UI seçimde ikisi karşılıklı dışlanır). */
+    if (store.config.activeCustomStyleId) {
+      const cs = (store.config.customStyles ?? []).find((s) => s.id === store.config.activeCustomStyleId);
+      if (cs?.instructions.trim()) finalSystemPrompt += `\n\n[Stil]: ${cs.instructions.trim()}`;
     }
 
     const repo = store.repo;
@@ -1542,7 +1642,9 @@ export function CoderView() {
          Sunucu Pollinations'ı anahtarsız destekler). */
       /* Ajan Ekibi modunda orkestrasyon endpoint'ine git (planlayıcı → paralel
          işçiler → birleştirici). Aynı gövdeyi alır, aynı OpenAI-uyumlu SSE'yi döner. */
-      const endpoint = useSwarm && !isContinuation ? "/api/orchestrate" : "/api/chat";
+      const endpoint = useResearch
+        ? "/api/research"
+        : useSwarm && !isContinuation ? "/api/orchestrate" : "/api/chat";
       const callViaServer = () => fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1842,6 +1944,11 @@ export function CoderView() {
               }
               continue;
             }
+            /* ask_user anketi: ajan tıklanabilir soru sordu → kart göster, yanıt bekle. */
+            if (parsed.ask_user_event?.questions) {
+              setPendingSurvey(parsed.ask_user_event.questions as SurveyQuestion[]);
+              continue;
+            }
             const delta = parsed.choices?.[0]?.delta?.content ?? "";
             const reasoning = (parsed.choices?.[0]?.delta as Record<string, unknown>)?.reasoning as string | undefined;
             if (reasoning) { thinkingFull += reasoning; useStore.getState().updateLastThinking(thinkingFull); }
@@ -2135,7 +2242,7 @@ export function CoderView() {
             </span>
           )}
           {/* Birleşik ⋯ menüsü — gruplu: Hızlı eylemler · Çalışma Alanı · Modlar · Araçlar */}
-          <MoreMenu placement="bottom" active={editorOpen || terminalOpen || gitPanelOpen || filesOpen || toolsEnabled || !!config.safeMode || swarmMode}>
+          <MoreMenu placement="bottom" active={editorOpen || terminalOpen || gitPanelOpen || filesOpen || toolsEnabled || !!config.safeMode || swarmMode || researchMode}>
             <EffortMenuControl />
             <div className="h-px bg-line my-1" />
 
@@ -2195,6 +2302,7 @@ export function CoderView() {
                 <ModeChip icon={<GraduationCap size={12} />} label="Öğrenme" active={!!config.learningMode} onClick={() => useStore.getState().saveConfig({ ...config, learningMode: !config.learningMode })} />
                 <ModeChip icon={<Sparkles size={12} />} label="Kalite" active={!!config.qualityMode} onClick={() => useStore.getState().saveConfig({ ...config, qualityMode: !config.qualityMode })} />
                 <ModeChip icon={<Users size={12} />} label="Ekip" active={swarmMode} onClick={() => setSwarmMode((v) => !v)} />
+                <ModeChip icon={<Search size={12} />} label="Araştırma" active={researchMode} onClick={() => setResearchMode((v) => !v)} />
               </div>
             )}
             {moreTab === "modes" && (
@@ -2609,6 +2717,17 @@ export function CoderView() {
                           </div>
                         </div>
                       )}
+                      {isLastAssistant && !streaming && pendingSurvey && (
+                        <SurveyCard
+                          questions={pendingSurvey}
+                          onSubmit={(answers, surveyQuestions) => {
+                            setPendingSurvey(null);
+                            const lines = answers.map((a, i) => `**${surveyQuestions[i].header}:** ${a}`);
+                            useStore.getState().pushMessage({ role: "user", content: lines.join("\n") });
+                            void callApi();
+                          }}
+                        />
+                      )}
                       {isLastAssistant && !streaming && checkpoints.length > 0 && repo && (
                         <div className="ml-11 max-w-2xl mt-2 flex items-center gap-2 px-3 py-2 rounded-xl border border-line bg-bgsoft/50 text-xs">
                           <RotateCcw size={13} className="text-amber-400 shrink-0" />
@@ -2856,6 +2975,7 @@ export function CoderView() {
                     </span>
                   )}
                   {swarmMode && <span className="flex items-center gap-1 text-brand font-medium" title="Ajan Ekibi: planlayıcı → paralel uzman işçiler → birleştirici"><Users size={12} /> Ekip</span>}
+                  {researchMode && <span className="flex items-center gap-1 text-brand font-medium" title="Derin Araştırma: çok-kaynaklı web araması → atıflı rapor"><Search size={12} /> Araştırma</span>}
                   {toolsEnabled && <span className="text-green/80 font-medium">Tools</span>}
                   {config.learningMode && <span className="flex items-center gap-1 text-brand font-medium" title="Öğrenme Modu: adım adım eğitsel açıklama"><GraduationCap size={12} /> Öğrenme</span>}
                   {activeAgent && <span className="text-brand font-medium">{activeAgent.command}</span>}

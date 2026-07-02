@@ -25,6 +25,7 @@ import { registerServiceWorker, watchConnection } from "@/lib/sw-register";
 const SettingsModal = dynamic(() => import("@/components/SettingsModal").then((m) => m.SettingsModal), { ssr: false });
 const ImageStudio = dynamic(() => import("@/components/ImageStudio").then((m) => m.ImageStudio), { ssr: false });
 const DesignStudio = dynamic(() => import("@/components/DesignStudio").then((m) => m.DesignStudio), { ssr: false });
+const StudioView = dynamic(() => import("@/components/studio/StudioView").then((m) => m.StudioView), { ssr: false });
 const SkillsPanel = dynamic(() => import("@/components/SkillsPanel").then((m) => m.SkillsPanel), { ssr: false });
 const LibraryModal = dynamic(() => import("@/components/LibraryModal").then((m) => m.LibraryModal), { ssr: false });
 
@@ -44,6 +45,7 @@ export default function AppPage() {
   const everSettings = useEverOpened(useStore((s) => s.settingsOpen));
   const everImage = useEverOpened(useStore((s) => s.imageStudioOpen));
   const everDesign = useEverOpened(useStore((s) => s.designStudioOpen));
+  const everStudio = useEverOpened(useStore((s) => s.studioOpen));
   const everSkills = useEverOpened(useStore((s) => s.skillsOpen));
   const everLibrary = useEverOpened(useStore((s) => s.libraryOpen));
   const router = useRouter();
@@ -61,6 +63,30 @@ export default function AppPage() {
     void useStore.getState().rehydrateSecrets();
     return watchConnection();
   }, [setSidebarOpen]);
+
+  /* Remix: /a/<id> sayfasından "Remix Et" ile gelince (?remix=<id>) yayınlanan
+     artifact'ı getirip önizleme paneline yükle → kullanıcı ajandan uyarlamasını
+     isteyebilir. URL temizlenir (yenilemede tekrar tetiklenmesin). */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const remixId = params.get("remix");
+    if (!remixId) return;
+    (async () => {
+      try {
+        const res = await fetch(`/api/publish?id=${encodeURIComponent(remixId)}`);
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.content && ["html", "svg", "mermaid"].includes(data.type)) {
+          useStore.getState().setArtifact({ type: data.type, content: data.content, title: data.title || "Remix" });
+          useStore.getState().addToast("Artifact yüklendi — ajandan uyarlamasını isteyebilirsin.", "success");
+        } else {
+          useStore.getState().addToast("Remix edilecek artifact bulunamadı.", "error");
+        }
+      } catch { useStore.getState().addToast("Remix yüklenemedi.", "error"); }
+      finally {
+        router.replace("/app");
+      }
+    })();
+  }, [router]);
 
   /* Sistem teması: autoTheme açıksa OS'i izle ve değiştikçe uygula. */
   useEffect(() => {
@@ -154,7 +180,7 @@ export default function AppPage() {
   useEffect(() => {
     const anyOpen = () => {
       const s = useStore.getState();
-      return s.settingsOpen || s.imageStudioOpen || s.designStudioOpen || s.skillsOpen || s.libraryOpen;
+      return s.settingsOpen || s.imageStudioOpen || s.designStudioOpen || s.studioOpen || s.skillsOpen || s.libraryOpen;
     };
     let armed = false;
     const unsub = useStore.subscribe(() => {
@@ -167,6 +193,7 @@ export default function AppPage() {
       if (s.settingsOpen) s.setSettingsOpen(false);
       else if (s.imageStudioOpen) s.setImageStudioOpen(false);
       else if (s.designStudioOpen) s.setDesignStudioOpen(false);
+      else if (s.studioOpen) s.setStudioOpen(false);
       else if (s.skillsOpen) s.setSkillsOpen(false);
       else if (s.libraryOpen) s.setLibraryOpen(false);
     };
@@ -242,6 +269,7 @@ export default function AppPage() {
         {everSettings && <SettingsModal />}
         {everImage && <ImageStudio />}
         {everDesign && <DesignStudio />}
+        {everStudio && <StudioView />}
         {everLibrary && <LibraryModal />}
         <CommandPalette />
         <KeyboardShortcuts />

@@ -57,6 +57,8 @@ export interface SwarmAgentState {
 export interface SwarmState {
   phase: "planning" | "working" | "synthesizing" | "done";
   agents: SwarmAgentState[];
+  /** Panel görünümü: "swarm" = Ajan Ekibi (varsayılan), "research" = Derin Araştırma. */
+  kind?: "swarm" | "research";
 }
 
 /** Ajanın terminalde çalıştırdığı bir komut — sohbette "todo" kutusunda canlı
@@ -151,6 +153,14 @@ export interface GitLabAccount {
 
 export type ResponseStyle = "normal" | "concise" | "detailed" | "code" | "formal";
 
+/** Kullanıcının kendi tanımladığı yazı stili (yerleşik 5 stile ek). Aktifken
+    talimatları sistem prompt'una eklenir. */
+export interface CustomStyle {
+  id: string;
+  name: string;
+  instructions: string;
+}
+
 /** Olay-tabanlı otomasyon: belirli bir olayda terminalde komut çalıştırır.
  *  afterWrite = ajan dosya yazınca, afterResponse = her yanıttan sonra. */
 export interface Automation {
@@ -225,6 +235,32 @@ export interface PromptTemplate {
   prompt: string;
 }
 
+/** Stüdyo tasarım sistemi (marka sözleşmesi). Üretimde designMd promptuna,
+    tokensCss üretilen tasarımın <head>'ine enjekte edilir. */
+export interface DesignSystem {
+  id: string;
+  name: string;
+  category: string;
+  accent: string;
+  designMd: string;
+  tokensCss: string;
+}
+
+/** Stüdyo projesi — kaydedilen bir tasarım (üretilen HTML + meta). user_config ile
+    senkronlanır. `versions`: aynı projenin son birkaç üretimi (geri dönüş için). */
+export interface StudioProject {
+  id: string;
+  name: string;
+  brief: string;
+  html: string;
+  designSystemId: string;
+  skillId: string | null;
+  directionId: string | null;
+  versions?: string[];
+  createdAt: number;
+  updatedAt: number;
+}
+
 /** Tasarım Stüdyosu'nda kaydedilen tek bir tasarım (HTML/CSS/JS). */
 export interface SavedDesign {
   id: string;
@@ -248,6 +284,10 @@ export interface Config {
   systemPrompt: string;
   theme: "dark" | "light";
   style: ResponseStyle;
+  /** Kullanıcının kendi yazı stilleri (yerleşiklere ek). */
+  customStyles?: CustomStyle[];
+  /** Aktif özel stilin id'si — doluysa yerleşik stil yerine bu uygulanır. */
+  activeCustomStyleId?: string | null;
   memories: MemoryItem[];
   skills: Skill[];
   /** Kullanıcı tanımlı slash-ajanları — config'te saklanır (kalıcı + senkron +
@@ -321,6 +361,10 @@ export interface Config {
   automations?: Automation[];
   /** Tasarım Stüdyosu'nda kaydedilen tasarımlar (kişiye özel; user_config ile senkron). */
   savedDesigns?: SavedDesign[];
+  /** Stüdyo: kullanıcının eklediği özel tasarım sistemleri (bundled'a ek). */
+  customDesignSystems?: DesignSystem[];
+  /** Stüdyo: kaydedilen projeler (çok-proje çalışma alanı). */
+  studioProjects?: StudioProject[];
   mcpServers?: McpServer[];
   /** Yerel Mod: kullanıcının makinesindeki Local Bridge adresi (ör. http://localhost:4319).
       Doluysa ve localMode açıksa ajan GitHub/GitLab API yerine gerçek dosya

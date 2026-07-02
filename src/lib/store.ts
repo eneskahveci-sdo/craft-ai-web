@@ -352,6 +352,9 @@ interface StoreState {
   /** Otomatik bellek: damıtılmış kalıcı bilgileri "auto_memory" skill'ine
       ekler (tekilleştirme + en eski kayıtları düşerek en çok 40 madde). */
   addAutoMemoryFacts: (facts: string[]) => void;
+  /** Otomatik bellek listesini tamamen değiştirir (düzenle/sil için). Boş liste
+      → "auto_memory" skill'i kaldırılır. */
+  setAutoMemoryFacts: (facts: string[]) => void;
   removeSkill: (id: string) => void;
   toggleSkill: (id: string) => void;
   incrementSkillUsage: (ids: string[]) => void;
@@ -367,6 +370,10 @@ interface StoreState {
   setImageStudioOpen: (b: boolean) => void;
   designStudioOpen: boolean;
   setDesignStudioOpen: (b: boolean) => void;
+  /** Yeni Stüdyo (Open Design tarzı brief→önizleme deneyimi). Klasik DesignStudio
+      "Gelişmiş tuval" olarak erişilebilir kalır. */
+  studioOpen: boolean;
+  setStudioOpen: (b: boolean) => void;
   streaming: boolean;
   setStreaming: (b: boolean) => void;
 
@@ -864,6 +871,23 @@ export const useStore = create<StoreState>()((set, get) => ({
     }
     get().saveConfig({ ...config, skills });
   },
+  setAutoMemoryFacts: (facts) => {
+    const config = get().config;
+    const skills = (config.skills ?? []).slice();
+    const idx = skills.findIndex((sk) => sk.id === "auto_memory");
+    if (idx < 0) return;
+    const clean = facts.map((f) => f.trim().replace(/^[-•*]\s*/, "")).filter((f) => f.length > 0);
+    if (clean.length === 0) {
+      /* Tümü silindi → otomatik bellek skill'ini kaldır. */
+      skills.splice(idx, 1);
+    } else {
+      const content =
+        "# Otomatik Bellek\n\nKonuşmalardan damıtılan kalıcı tercihler — her sohbete otomatik eklenir.\n\n" +
+        clean.map((l) => `- ${l}`).join("\n");
+      skills[idx] = { ...skills[idx], content };
+    }
+    get().saveConfig({ ...config, skills });
+  },
   updateSkill: (id, patch) => {
     const config = get().config;
     get().saveConfig({
@@ -913,6 +937,8 @@ export const useStore = create<StoreState>()((set, get) => ({
   setImageStudioOpen: (b) => set({ imageStudioOpen: b }),
   designStudioOpen: false,
   setDesignStudioOpen: (b) => set({ designStudioOpen: b }),
+  studioOpen: false,
+  setStudioOpen: (b) => set({ studioOpen: b }),
   streaming: false,
   setStreaming: (b) => set({ streaming: b }),
 
